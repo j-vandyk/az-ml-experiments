@@ -13,3 +13,18 @@ numpy>=1.24.0
 adlfs>=2023.9.0
 fsspec>=2023.9.0
 mlflow>=2.9.0
+# --- data acquisition ---
+wbgapi>=1.0.12          # World Bank WDI + WGI
+vdemdata>=0.5.0         # V-Dem panel via pip
+requests>=2.31.0        # ACLED API, UCDP API, FAO API
+openpyxl>=3.1.0         # SIPRI / FSI Excel files
+xlrd>=2.0.1             # Legacy .xls files (some SIPRI releases)
+google-cloud-bigquery>=3.13.0   # GDELT via BigQuery
+google-cloud-bigquery-storage>=2.24.0  # faster BQ reads (Arrow)
+db-dtypes>=1.2.0        # BQ → pandas type conversions
+pyarrow>=14.0.0         # Parquet I/O
+tqdm>=4.66.0            # progress bars for paginated pulls
+pyreadstat>=1.2.0       # read Stata .dta files (Archigos, CNTS)
+# --- modelling pipeline ---
+pycountry>=22.3.5       # ISO2/ISO3/numeric country code lookups for crosswalk
+scipy>=1.11.0           # rankdata (LASSO audit), spearmanr (concordance checks)
