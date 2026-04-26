@@ -1,0 +1,108 @@
+# Azure ML sweep job — HyperDrive hyperparameter search for one outcome.
+#
+# Usage (submit one per outcome):
+#   az ml job create -f jobs/sweep_outcome.yml \
+#       --set inputs.outcome=civil_war_onset \
+#       --name sweep-civil-war-onset
+#
+# Or via Python SDK v2:
+#   sweep_job = load_job("jobs/sweep_outcome.yml")
+#   sweep_job.inputs["outcome"] = "coup_attempt"
+#   ml_client.jobs.create_or_update(sweep_job)
+
+$schema: https://azuremlschemas.azureedge.net/latest/sweepJob.schema.json
+type: sweep
+
+# ── Trial command ──────────────────────────────────────────────────────────────
+trial:
+  type: command
+  code: ../src/train
+  command: >
+    python train_outcome.py
+    --outcome ${{ inputs.outcome }}
+    --max-depth ${{ search_space.max_depth }}
+    --learning-rate ${{ search_space.learning_rate }}
+    --n-estimators ${{ search_space.n_estimators }}
+    --subsample ${{ search_space.subsample }}
+    --colsample-bytree ${{ search_space.colsample_bytree }}
+    --min-child-weight ${{ search_space.min_child_weight }}
+    --gamma ${{ search_space.gamma }}
+    --reg-alpha ${{ search_space.reg_alpha }}
+    --reg-lambda ${{ search_space.reg_lambda }}
+    --crosswalk-path data/country_crosswalk.csv
+  environment: azureml:instability-training-env:latest
+  compute: azureml:instability-cpu-cluster
+  environment_variables:
+    ADLS_ACCOUNT_NAME: ${{ inputs.adls_account_name }}
+    ADLS_CONTAINER: ${{ inputs.adls_container }}
+
+# ── Fixed inputs ───────────────────────────────────────────────────────────────
+inputs:
+  outcome:
+    type: string
+    default: civil_war_onset
+  adls_account_name:
+    type: string
+    default: ""   # set via --set or environment
+  adls_container:
+    type: string
+    default: data
+
+# ── Search space ───────────────────────────────────────────────────────────────
+search_space:
+  max_depth:
+    type: choice
+    values: [3, 4, 5, 6, 7]
+  learning_rate:
+    type: loguniform
+    min_value: -4   # exp(-4) ≈ 0.018
+    max_value: -1   # exp(-1) ≈ 0.368
+  n_estimators:
+    type: choice
+    values: [200, 400, 600, 800]
+  subsample:
+    type: uniform
+    min_value: 0.5
+    max_value: 1.0
+  colsample_bytree:
+    type: uniform
+    min_value: 0.5
+    max_value: 1.0
+  min_child_weight:
+    type: choice
+    values: [1, 5, 10, 20, 50]
+  gamma:
+    type: choice
+    values: [0.0, 0.1, 0.3, 1.0]
+  reg_alpha:
+    type: choice
+    values: [0.0, 0.01, 0.1, 1.0]
+  reg_lambda:
+    type: choice
+    values: [1.0, 2.0, 5.0]
+
+# ── Sampling and early stopping ────────────────────────────────────────────────
+sampling_algorithm: random
+
+early_termination:
+  type: bandit
+  slack_factor: 0.15       # terminate if trial AUPRC < best * (1 - 0.15)
+  evaluation_interval: 1
+  delay_evaluation: 5      # don't evaluate before 5 runs complete
+
+# ── Objective ─────────────────────────────────────────────────────────────────
+objective:
+  primary_metric: val_auprc
+  goal: maximize
+
+# ── Limits ────────────────────────────────────────────────────────────────────
+limits:
+  max_total_trials: 40    # reduce to 20 for humanitarian_crisis_onset
+  max_concurrent_trials: 5
+  timeout: 7200           # 2-hour wall clock limit per sweep
+
+display_name: sweep-${{ inputs.outcome }}
+experiment_name: instability-xgboost-sweep
+description: >
+  HyperDrive sweep for XGBoost instability classifier.
+  One sweep job per outcome. Outcome set via --set inputs.outcome=<name>.
