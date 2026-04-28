@@ -290,11 +290,30 @@ audit parquet consumed by `03/03`.
 Trains one `XGBClassifier` per outcome using the feature set from `03/01`.
 
 - Temporal train/val/test split (train ≤ 2018, val 2019–2021, test ≥ 2022)
-- `RandomizedSearchCV` with expanding temporal CV folds — no cross-time leakage
-- Class imbalance handled per-outcome via `scale_pos_weight`
-- Early stopping on a held-out 10% of train+val
+- `RandomizedSearchCV` with expanding temporal CV folds (CV on training data only) — no cross-time leakage
+- Class imbalance handled per-outcome via `scale_pos_weight` (negatives / positives in training set)
+- Best hyperparameters refitted with `early_stopping_rounds=30` against the validation set
 - All models, metrics, and SHAP plots logged to MLflow (one run per outcome)
-- Global SHAP: beeswarm, bar chart, waterfall (high/low risk), dependence plots, heatmap
+- Global SHAP: beeswarm plot (top 20 features) and calibration curve per outcome
+
+**MLflow metrics logged per outcome:**
+
+| Metric | Description |
+|---|---|
+| `train_auprc` | AUPRC on training set — primary overfitting signal |
+| `val_auprc` | AUPRC on validation set (2019–2021) — hyperparameter selection target |
+| `val_auroc` | AUROC on validation set |
+| `test_auprc` | AUPRC on held-out test set (≥ 2022) — out-of-sample performance |
+| `test_auroc` | AUROC on test set |
+| `val_f1_max` | Best F1 achievable at any threshold on the validation set |
+| `val_thresh_f1` | Probability threshold that achieves `val_f1_max` |
+| `val_precision_at_20` | Precision among the top 20 highest-risk country-years in validation |
+| `val_brier` | Brier score on validation set (calibration quality; lower is better) |
+| `test_brier` | Brier score on test set |
+| `best_iteration` | Number of trees used after early stopping (vs. `n_estimators` ceiling) |
+
+> Interpreting these metrics in context of class imbalance, temporal shift, and
+> operational threshold selection: see [`.claude/metric-interpretation-guide.md`](.claude/metric-interpretation-guide.md).
 
 A matching AML sweep job is defined in `jobs/sweep_outcome.yml` for running
 HyperDrive hyperparameter search at scale. The standalone training script at
@@ -393,15 +412,25 @@ without retraining all models, and vice versa.
 pip install -r requirements.txt
 ```
 
-Set the following environment variables before running any notebook locally:
+For first-time setup on a new AML compute instance see the [First-time setup](#first-time-setup)
+section above. For local development, copy `.env.template` to `.env` and fill in the values:
 
 ```bash
-ADLS_ACCOUNT_NAME   # Storage account name
-ADLS_CONTAINER      # Container name (default: data)
-ADLS_SAS_TOKEN      # or ADLS_ACCOUNT_KEY
+cp .env.template .env
+source .env
 ```
 
-On AML compute, authentication is handled automatically via Managed Identity.
+On AML compute, authentication uses Managed Identity via `DefaultAzureCredential` — no
+credentials need to be set manually beyond the environment variables listed in step 3.
+
+### Reference documents (`.claude/`)
+
+| Document | Purpose |
+|---|---|
+| [`metric-interpretation-guide.md`](.claude/metric-interpretation-guide.md) | How to read AUPRC, Brier score, calibration, and P@K; overfitting diagnosis; threshold selection by outcome; iterative sweep workflow |
+| [`azure-ml-usage-plan.md`](.claude/azure-ml-usage-plan.md) | VM sizing recommendations, HyperDrive sweep run estimates, and budget breakdown |
+
+---
 
 ### ADLS path conventions
 

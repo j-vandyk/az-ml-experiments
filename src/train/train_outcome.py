@@ -34,7 +34,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.metrics import (
+    average_precision_score, roc_auc_score,
+    brier_score_loss, precision_recall_curve,
+)
 from sklearn.calibration import CalibrationDisplay
 from sklearn.model_selection import BaseCrossValidator
 import xgboost as xgb
@@ -274,6 +277,7 @@ def main():
         X_tr, y_tr,
         eval_set=[(X_v, y_v)],
         verbose=False,
+        early_stopping_rounds=30,
     )
 
     # Metrics
@@ -283,17 +287,31 @@ def main():
     def _safe_auroc(y_true, y_prob):
         return roc_auc_score(y_true, y_prob) if y_true.sum() > 1 else float("nan")
 
-    val_prob  = model.predict_proba(X_v)[:, 1]
-    test_prob = model.predict_proba(X_te)[:, 1]
+    train_prob = model.predict_proba(X_tr)[:, 1]
+    val_prob   = model.predict_proba(X_v)[:, 1]
+    test_prob  = model.predict_proba(X_te)[:, 1]
+
+    precision_c, recall_c, thresholds_c = precision_recall_curve(y_v, val_prob)
+    f1_c = 2 * precision_c * recall_c / (precision_c + recall_c + 1e-9)
+    top20_idx = val_prob.argsort()[::-1][:20]
 
     metrics = {
-        "val_auprc":  _safe_auprc(y_v,  val_prob),
-        "val_auroc":  _safe_auroc(y_v,  val_prob),
-        "test_auprc": _safe_auprc(y_te, test_prob),
-        "test_auroc": _safe_auroc(y_te, test_prob),
+        "train_auprc":         _safe_auprc(y_tr, train_prob),
+        "val_auprc":           _safe_auprc(y_v,  val_prob),
+        "val_auroc":           _safe_auroc(y_v,  val_prob),
+        "test_auprc":          _safe_auprc(y_te, test_prob),
+        "test_auroc":          _safe_auroc(y_te, test_prob),
+        "val_f1_max":          float(f1_c[:-1].max()),
+        "val_thresh_f1":       float(thresholds_c[f1_c[:-1].argmax()]),
+        "val_precision_at_20": float(y_v[top20_idx].mean()),
+        "val_brier":           float(brier_score_loss(y_v,  val_prob)),
+        "test_brier":          float(brier_score_loss(y_te, test_prob)),
+        "best_iteration":      int(model.best_iteration) if model.best_iteration is not None else -1,
     }
-    print(f"  Val  AUPRC={metrics['val_auprc']:.4f}  AUROC={metrics['val_auroc']:.4f}")
-    print(f"  Test AUPRC={metrics['test_auprc']:.4f}  AUROC={metrics['test_auroc']:.4f}")
+    print(f"  Train AUPRC={metrics['train_auprc']:.4f}")
+    print(f"  Val   AUPRC={metrics['val_auprc']:.4f}  AUROC={metrics['val_auroc']:.4f}")
+    print(f"  Test  AUPRC={metrics['test_auprc']:.4f}  AUROC={metrics['test_auroc']:.4f}")
+    print(f"  Val   F1-max={metrics['val_f1_max']:.4f}  P@20={metrics['val_precision_at_20']:.3f}  best_iter={metrics['best_iteration']}")
 
     # SHAP (capped at 500 rows)
     explainer   = shap.TreeExplainer(model)
