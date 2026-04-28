@@ -48,7 +48,7 @@ Raw and processed data live in Azure Data Lake Storage Gen2.
                ↓
   ┌────────────────────────────────────────────────────┐
   │                                                    │
-xgboost_instability_classifier.ipynb     xgboost_inference.ipynb
+18_xgboost_instability_classifier.ipynb  19_xgboost_inference.ipynb
 Self-contained prototype                 Operational inference
 Model dev + global SHAP                  Per-observation SHAP artifacts
 ```
@@ -303,9 +303,9 @@ actually use.
 
 ---
 
-## Self-contained classifier notebook
+## Self-contained classifier notebook (18)
 
-**`notebooks/xgboost_instability_classifier.ipynb`** is an end-to-end prototype
+**`notebooks/18_xgboost_instability_classifier.ipynb`** is an end-to-end prototype
 that trains a single binary instability classifier directly from raw CSV without
 depending on the numbered pipeline. It is useful for rapid experimentation, testing
 modelling assumptions, and exploring a new data slice before integrating it into
@@ -347,9 +347,9 @@ arrive) without retraining all models, and vice versa.
 
 ---
 
-## Inference notebook
+## Inference notebook (19)
 
-**`notebooks/xgboost_inference.ipynb`** is the operational complement to the
+**`notebooks/19_xgboost_inference.ipynb`** is the operational complement to the
 training pipeline. It is designed for one purpose: running a trained model on new
 country-year data that was not seen during training and producing a full
 explanation for every prediction.
