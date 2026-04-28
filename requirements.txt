@@ -28,3 +28,8 @@ pyreadstat>=1.2.0       # read Stata .dta files (Archigos, CNTS)
 # --- modelling pipeline ---
 pycountry>=22.3.5       # ISO2/ISO3/numeric country code lookups for crosswalk
 scipy>=1.11.0           # rankdata (LASSO audit), spearmanr (concordance checks)
+# --- feature engineering (notebook 14b) ---
+statsmodels>=0.14.0     # Hodrick-Prescott filter, OLS trend decomposition
+libpysal>=4.6.0         # spatial weights matrices (KNN, distance-band)
+esda>=2.4.0             # Moran's I, LISA (local spatial autocorrelation)
+ruptures>=1.1.0         # structural break / regime-shift detection

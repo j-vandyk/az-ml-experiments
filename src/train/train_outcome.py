@@ -124,7 +124,7 @@ def load_feature_manifest(fs, container: str, outcome: str) -> list[str]:
         manifest = json.load(f)
     return manifest.get("feature_names", [])
 
-def write_parquet_adls(df: pd.DataFrame, fs, container: str, account: str,
+def write_parquet_adls(df: pd.DataFrame, container: str, account: str,
                        subpath: str, storage_opts: dict) -> None:
     url = adls_url(container, account, subpath)
     df.to_parquet(url, storage_options=storage_opts, index=False, engine="pyarrow")
@@ -132,10 +132,14 @@ def write_parquet_adls(df: pd.DataFrame, fs, container: str, account: str,
 def write_model_adls(model: xgb.XGBClassifier, fs, container: str,
                      subpath: str) -> None:
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
-        model.save_model(tmp.name)
-        with open(tmp.name, "rb") as src:
+        tmp_path = tmp.name
+    try:
+        model.save_model(tmp_path)
+        with open(tmp_path, "rb") as src:
             with fs.open(f"{container}/{subpath}", "wb") as dst:
                 dst.write(src.read())
+    finally:
+        os.unlink(tmp_path)
 
 # ── Temporal CV ───────────────────────────────────────────────────────────────
 
@@ -323,7 +327,7 @@ def main():
     model_subpath = f"models/{args.run_date}/{args.outcome}/model.json"
     shap_subpath  = f"models/{args.run_date}/{args.outcome}/shap_values.parquet"
     write_model_adls(model, fs, args.adls_container, model_subpath)
-    write_parquet_adls(shap_df, fs, args.adls_container, args.adls_account,
+    write_parquet_adls(shap_df, args.adls_container, args.adls_account,
                        shap_subpath, storage_opts)
     print(f"  Model → {model_subpath}")
     print(f"  SHAP  → {shap_subpath}")
