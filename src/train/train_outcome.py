@@ -47,7 +47,7 @@ import mlflow.xgboost
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# ── Constants (must match notebooks 14, 15, 16) ──────────────────────────────
+# ── Constants (must match notebooks 02/02, 03/01, 03/02) ─────────────────────
 
 TRAIN_END_YEAR = 2018
 VAL_END_YEAR   = 2021
