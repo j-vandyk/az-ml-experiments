@@ -14,6 +14,118 @@ Raw and processed data live in Azure Data Lake Storage Gen2.
 
 ---
 
+## First-time setup
+
+> **Assumes:** AML workspace, ADLS storage account, compute instance, and AML
+> environment (`instability-training-env`) are already provisioned.
+
+### 1. Clone the repo onto your AML compute instance
+
+In AML Studio → Compute → your instance → JupyterLab terminal:
+
+```bash
+git clone <repo-url>
+cd az-ml-experiments
+```
+
+### 2. Store external API credentials in Key Vault
+
+Create the following secrets in your Azure Key Vault. Only two data sources
+require credentials; all others are public datasets.
+
+| Secret name | Value | Source |
+|---|---|---|
+| `acled-api-key` | Your ACLED API key | Register at [acleddata.com](https://acleddata.com/register) |
+| `acled-email` | Your ACLED registered email | Same registration |
+| `gcp-service-account-json` | Full JSON content of a GCP service account key | GCP Console → IAM → Service Accounts → create key → JSON |
+| `gcp-project-id` | Your GCP project ID | GCP Console → project settings |
+
+```bash
+# Example — repeat for each secret
+az keyvault secret set --vault-name <vault-name> \
+  --name acled-api-key --value "<your-key>"
+
+# For the GCP service account JSON (pass the file directly):
+az keyvault secret set --vault-name <vault-name> \
+  --name gcp-service-account-json --file /path/to/service_account.json
+```
+
+> **GDELT only** — if you don't need GDELT data, skip the GCP secrets.
+> Notebook `01/06_pull_gdelt` will error at the KV cell but all other
+> notebooks are unaffected.
+
+### 3. Set compute instance environment variables
+
+In AML Studio → Compute → your instance → **Edit** → Environment variables.
+Add all six variables, then **restart the kernel**.
+
+| Variable | Value |
+|---|---|
+| `ADLS_ACCOUNT_NAME` | Your ADLS Gen2 storage account name |
+| `ADLS_CONTAINER` | `data` (or your container name) |
+| `KEY_VAULT_URL` | `https://<vault-name>.vault.azure.net` |
+| `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` |
+| `AZURE_RESOURCE_GROUP` | Resource group containing the AML workspace |
+| `AZUREML_WORKSPACE_NAME` | AML workspace name |
+
+> For local development, see [`.env.template`](.env.template).
+
+### 4. Run the onboarding notebook
+
+Open and run **[`setup/onboarding.ipynb`](setup/onboarding.ipynb)** top-to-bottom.
+It will:
+- Confirm all environment variables are set
+- Confirm Key Vault secrets exist
+- Validate ADLS write access (managed identity role check)
+- Upload `data/country_crosswalk.csv` to ADLS
+- Print a checklist of any remaining manual steps
+
+### 5. CNTS (commercial dataset — manual step)
+
+The Cross-National Time Series dataset requires a CQ Press / Databanks International
+subscription. After purchasing, upload the file to ADLS once:
+
+```bash
+az storage blob upload \
+  --account-name $ADLS_ACCOUNT_NAME --container-name data \
+  --name source_data/cnts/cnts.dta --file /path/to/cnts.dta \
+  --auth-mode login
+```
+
+Notebook `01/12_pull_cnts` will download it automatically on next run.
+If CNTS is unavailable it skips gracefully — it is not required for core outcomes.
+
+### 6. Run the pipeline
+
+Run notebooks in stage order. Within each stage, notebooks can run in any order.
+
+```
+01_data_pull/       (run all 19 — each writes to ADLS independently)
+       ↓
+02_feature_engineering/01_prio_grid_spatial_features  (requires 01/09 + 01/04)
+02_feature_engineering/02_build_feature_matrix        (requires all of 01_data_pull)
+02_feature_engineering/03_engineer_derived_features   (requires 02/02)
+       ↓
+03_model_development/01_feature_selection_lasso       (requires 02/02 or 02/03)
+03_model_development/02_train_xgboost_outcomes        (requires 03/01)
+03_model_development/03_interrogate_nonlinearity      (requires 03/02)
+       ↓
+04_inference/01_xgboost_inference                     (paste run ID from 03/02)
+```
+
+### 7. HyperDrive sweep (optional)
+
+Submit one sweep job per outcome:
+
+```bash
+az ml job create -f jobs/sweep_outcome.yml \
+  --set inputs.outcome=civil_war_onset \
+  --set inputs.adls_account_name=$ADLS_ACCOUNT_NAME \
+  --name sweep-civil-war-onset
+```
+
+---
+
 ## Pipeline overview
 
 ```
