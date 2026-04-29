@@ -29,7 +29,7 @@ trial:
     --gamma ${{ search_space.gamma }}
     --reg-alpha ${{ search_space.reg_alpha }}
     --reg-lambda ${{ search_space.reg_lambda }}
-    --crosswalk-path data/country_crosswalk.csv
+    --crosswalk-path ${{ inputs.crosswalk }}
   environment: azureml:instability-training-env:latest
   compute: azureml:instability-cpu-cluster
   environment_variables:
@@ -47,6 +47,9 @@ inputs:
   adls_container:
     type: string
     default: data
+  crosswalk:
+    type: uri_file
+    path: azureml://datastores/workspaceblobstore/paths/data/country_crosswalk.csv
 
 # ── Search space ───────────────────────────────────────────────────────────────
 search_space:
