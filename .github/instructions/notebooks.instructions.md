@@ -3,14 +3,14 @@ applyTo: "**/*.ipynb"
 ---
 # Notebook Conventions
 
-Rules specific to Jupyter notebook cells in this repository.
-Notebooks run on AML compute instances (JupyterLab) or locally.
+Rules specific to Jupyter / Synapse notebook cells in this repository.
 
 ## Cell Structure
 
 - Every notebook must have a **master config cell** near the top that defines all
-  ADLS paths, AML workspace references, environment names, and tuning constants.
-  Nothing else should hardcode those values.
+  blob paths, deployment names, thresholds, and tuning constants. Nothing else
+  should hardcode those values.
+- All imports must be in the top 1-2 cells; do not scatter imports throughout the notebook. 
 - Use `# ╔══...══╗ / ║ ... ║ / ╚══...══╝` box headers to visually separate
   major sections within a long cell.
 - Use `# ── Section label ──────` dividers between logical passes inside a cell.
@@ -26,37 +26,35 @@ Notebooks run on AML compute instances (JupyterLab) or locally.
   ```
 - Do not define functions in the same cell where they are called for the
   first time in the main workflow — keep definitions and invocations separate.
-- After `pip install` cells, add a comment directing the user to restart the
-  kernel before continuing.
+- After `pip install` cells, include `notebookutils.session.restartPython()`
+  (Synapse) or a comment directing the user to restart the kernel.
 
 ## Outputs and Logging
 
 - Every major pipeline stage cell must print a one-line summary on success:
   `print(f"✓ Stage complete: {n} records written to {path}")`
-- Log MLflow metrics and params with `mlflow.log_metric()` / `mlflow.log_param()`
-  at the end of each training or evaluation cell — not scattered mid-cell.
+- Use structured print blocks (not bare `print("")`) so log lines are
+  parseable in Synapse run history.
 - Do not leave exploratory `display()` / `print()` calls in production cells;
   wrap them in `if DEBUG:` guards using a `DEBUG = False` flag in the config cell.
 
 ## Notebook-Level Documentation
 
 - The first cell must be a markdown cell with:
-  - Title and subtitle (model type, data sources, runtime)
+  - Title and subtitle (method names, runtime)
   - "What this notebook covers" numbered list
   - Run order relative to other notebooks in the pipeline
-  - ADLS paths read and written (table format)
-  - AML experiment name and registered model name (if applicable)
+  - ADLS blob paths written and consumed (table format)
 - Section headers use `##` (not `#`) so the notebook outline is navigable.
-- Remove exploratory/tutorial cells once a workflow is validated; they add
-  noise and make re-runs slower.
+- Remove explainer/tutorial cells once the workflow is validated end-to-end;
+  they add noise for production runs.
 
-## AML-Specific
+## Synapse-Specific
 
-- Use `MLClient` from `azure.ai.ml` for all AML SDK operations; do not mix
-  the legacy `azureml-core` SDK unless a specific feature requires it.
-- Retrieve the AML workspace handle once at the top of the notebook via
-  `MLClient.from_config()` (on AML compute) or `MLClient(credential, ...)` locally.
-- Submit long-running training steps as AML jobs (`ml_client.jobs.create_or_update()`)
-  rather than running them inline in a notebook cell.
-- Always log the AML job name/URL after submission so runs are traceable:
-  `print(f"Job submitted: {job.name} — {job.studio_url}")`
+- Import `mssparkutils` inside a `try/except ImportError` block so the notebook
+  can be tested locally without a Synapse session.
+- All ADLS credential calls must go through
+  `mssparkutils.credentials.getSecret(KEY_VAULT_URL, SECRET_NAME)`.
+- Broadcast-heavy Spark operations (e.g., `mapInPandas` UDFs) must use
+  `spark.sparkContext.broadcast()` for large shared objects; do not close
+  over Python module-level state directly.
