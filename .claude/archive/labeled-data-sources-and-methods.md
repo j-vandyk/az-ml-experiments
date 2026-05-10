@@ -1,3 +1,7 @@
+> **Archived.** Label-construction patterns (peace-spell onset, deterioration deltas, country-relative percentile, weak supervision, LLM extraction). Merged into `../data-and-predictors.md` §5. Kept here for the longer worked examples (Snorkel labeling functions, GDELT → LLM pipeline).
+
+---
+
 # Labeled Data Sources and Construction Methods
 ## Country-Year Instability Prediction
 

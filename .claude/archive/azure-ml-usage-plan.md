@@ -1,3 +1,7 @@
+> **Archived.** Compute, runtime, and budget content has been merged into `../project-reference.md` (sections 3–5). This file is preserved for the original phrasing only — do not update it; update the active reference instead.
+
+---
+
 # Azure ML Usage Plan, VM Recommendations, and Budget Estimates
 
 ## Context

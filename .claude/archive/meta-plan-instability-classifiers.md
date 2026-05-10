@@ -1,3 +1,7 @@
+> **Archived.** The original 4–6 month project plan, written before notebooks 01–26 existed. Forward-looking sections (architecture, decisions, open work) have been merged into `../project-reference.md`. Data and predictor sections have been merged into `../data-and-predictors.md`. The notebooks themselves are now the canonical record of what was actually built. Phase IV extensions (LSTM, LLM narratives, stacking ensemble) are explicitly out of scope for the current iteration; consult before reviving.
+
+---
+
 # Meta-Plan: Nation-State Instability Forecasting
 ## 4–6 Month Single Data Scientist Project on Azure ML
 
