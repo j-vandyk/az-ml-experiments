@@ -1,7 +1,7 @@
 # az-ml-experiments
 
 Predicts national-level political and humanitarian instability events from a
-country-year panel dataset. The pipeline ingests data from nineteen international
+country-year panel dataset. The pipeline ingests data from twenty-six international
 sources, builds a unified feature matrix augmented with PRIO-GRID spatial features
 and derived transformations, selects features via LASSO with a mutual-information
 rescue pass, trains one XGBoost classifier per outcome, and produces full
@@ -100,7 +100,7 @@ If CNTS is unavailable it skips gracefully — it is not required for core outco
 Run notebooks in stage order. Within each stage, notebooks can run in any order.
 
 ```
-01_data_pull/       (run all 19 — each writes to ADLS independently)
+01_data_pull/       (run all 26 — each writes to ADLS independently)
        ↓
 02_feature_engineering/01_prio_grid_spatial_features  (requires 01/09 + 01/04)
 02_feature_engineering/02_build_feature_matrix        (requires all of 01_data_pull)
@@ -130,16 +130,16 @@ az ml job create -f jobs/sweep_outcome.yml \
 
 ```
  01_data_pull/
- Notebooks 01–19
- 19 sources → ADLS parquets
+ Notebooks 01–26
+ 26 sources → ADLS parquets
         │
-        ├── 01 ACLED          09 PRIO-GRID raw        14 RSUI
-        ├── 02 World Bank     10 Archigos              15 Freedom House
-        ├── 03 V-Dem/Polity   11 Africa leadership     16 EPR
-        ├── 04 Conflict lbls  12 CNTS                  17 PTS
-        ├── 05 Fragility/Hum  13 NELDA                 18 V-Dem ERT
-        ├── 06 GDELT                                   19 Cline coup
-        ├── 07 FAO food
+        ├── 01 ACLED          09 PRIO-GRID raw        14 RSUI            20 WBI
+        ├── 02 World Bank     10 Archigos             15 Freedom House   21 ICEWS
+        ├── 03 V-Dem/Polity   11 Africa leadership    16 EPR             22 IMF WEO
+        ├── 04 Conflict lbls  12 CNTS                 17 PTS             23 IDMC
+        ├── 05 Fragility/Hum  13 NELDA                18 V-Dem ERT       24 BTI
+        ├── 06 GDELT                                  19 Cline coup      25 V-Party
+        ├── 07 FAO food                                                  26 ND-GAIN
         └── 08 SIPRI
                │
                ▼
@@ -190,11 +190,21 @@ ready for joining in `02/02_build_feature_matrix`.
 | 17 | PTS | Political Terror Scale — government repression coded 1–5, three sources |
 | 18 | V-Dem ERT | Episodes of Regime Transformation — autocratization episode coding |
 | 19 | Cline Center Coup | Global coup registry 1945–present; extends and supersedes Powell-Thyne |
+| 20 | World Bank WBI | Worldwide Bureaucracy Indicators — public-sector wage bill, employment, pub-priv wage ratio (state-capacity / coup-risk proxies) |
+| 21 | ICEWS | CAMEO-coded political event monthly aggregates (Goldstein mean/std, conflict/coop counts) — second media-derived signal independent of GDELT |
+| 22 | IMF WEO | World Economic Outlook actuals + forward projections (GDP growth, inflation, fiscal balance, debt, current account, unemployment) |
+| 23 | IDMC | Internal displacement flow and stock — conflict and disaster, leading indicator distinct from UNHCR refugee stocks |
+| 24 | BTI | Bertelsmann Transformation Index — bi-annual governance/democracy sub-scores, linearly interpolated to annual with `months_since_bti` |
+| 25 | V-Party | V-Dem populism and anti-establishment scores aggregated from party-year to country-year (governing coalition vs. opposition) |
+| 26 | ND-GAIN | Climate vulnerability and adaptive readiness sub-scores (food, water, health, ecosystem, governance, social) |
 
 Notebooks 14–19 provide supplementary label sources (additional dependent variables
 for backsliding, repression, ethnic exclusion, and coup models) as well as predictors.
-All write to ADLS; `02/02` joins them via `RAW_PREFIXES` using the same mechanism as
-the core sources.
+Notebooks 20–26 are **predictor-only** additions covering state capacity (20),
+independent media-event signal (21), forward-looking macro (22), displacement flows (23),
+governance quality (24), populist party presence (25), and climate-vulnerability ×
+adaptive-capacity (26). All write to ADLS; `02/02` joins them via `RAW_PREFIXES` using
+the same mechanism as the core sources.
 
 ---
 
@@ -222,7 +232,7 @@ Writes to `raw/prio_grid/{RUN_DATE}/priogrid_engineered_features.parquet`.
 
 #### `02_build_feature_matrix`
 
-Joins all 19 source parquets and the PRIO-GRID spatial features (`02/01`) on a
+Joins all source parquets and the PRIO-GRID spatial features (`02/01`) on a
 common `(iso3, year)` key to produce a single country-year panel
 (~167 countries × 25 years ≈ 4,000 rows). Codes twelve binary outcome labels,
 each forward-shifted one year so that features at year *t* predict events at year *t+1*.
@@ -259,12 +269,14 @@ toggled in `ENG_CFG`.
 
 | Section | What it adds |
 |---|---|
-| A — Transformations | `log1p`, `sqrt`, first differences (`_diff1`), HP-filter trend/cycle |
-| B — Interactions | Configured pairwise products encoding domain hypotheses |
-| C — Spatial spillover | KNN spatial lag (`_slag`), Local Moran's I, LISA quadrant |
+| A — Transformations | `log1p`, `sqrt`, polynomial expansions, first differences (`_diff1`), HP-filter trend/cycle |
+| B — Interactions | Configured pairwise products (z-scored before multiplication) encoding domain hypotheses |
+| C — Spatial spillover | KNN spatial lag (`_slag`), Local Moran's I (`_local_moran`), LISA quadrant (`_lisa_quad`) |
+| D — Feature audit | Near-zero-variance flags, missingness report, point-biserial correlation against each outcome label |
 
 A **feature catalog CSV** is written alongside the output parquet documenting every
 derived column, its source variables, transformation applied, and missingness rate.
+Section D's audit pre-prunes obviously useless features before LASSO (`03/01`) runs.
 
 ---
 
@@ -423,12 +435,40 @@ source .env
 On AML compute, authentication uses Managed Identity via `DefaultAzureCredential` — no
 credentials need to be set manually beyond the environment variables listed in step 3.
 
-### Reference documents (`.claude/`)
+### Reference documents
+
+Active reference docs live in `.claude/`. Long-form literature is in `docs/literature/`. Superseded planning docs are in `.claude/archive/` (preserved for the original phrasing, not for current decisions).
 
 | Document | Purpose |
 |---|---|
-| [`metric-interpretation-guide.md`](.claude/metric-interpretation-guide.md) | How to read AUPRC, Brier score, calibration, and P@K; overfitting diagnosis; threshold selection by outcome; iterative sweep workflow |
-| [`azure-ml-usage-plan.md`](.claude/azure-ml-usage-plan.md) | VM sizing recommendations, HyperDrive sweep run estimates, and budget breakdown |
+| [`.claude/project-reference.md`](.claude/project-reference.md) | Pipeline overview, architecture decisions, compute resources, runtime estimates, budget, deferred follow-ups |
+| [`.claude/data-and-predictors.md`](.claude/data-and-predictors.md) | Implemented data sources (notebooks 01–26), the 12 outcome labels and their definitions, IV taxonomy by domain, label-construction methods |
+| [`.claude/metric-interpretation-guide.md`](.claude/metric-interpretation-guide.md) | How to read AUPRC, Brier score, calibration, and P@K; overfitting diagnosis; threshold selection by outcome; iterative sweep workflow |
+| [`docs/literature/`](docs/literature/) | Snowball literature review, instability-modeling synthesis, model-types reference |
+| [`docs/refactor-backlog.md`](docs/refactor-backlog.md) | Deferred refactors (currently on sibling branch `claude/refactor-backlog-followups`) |
+
+### Claude Code skills (`.claude/skills/`)
+
+Project-level skills that capture the recurring workflows in this repo. Invoke from Claude Code with `/<skill-name>` or by describing the task.
+
+**High-leverage (used routinely):**
+
+| Skill | What it does |
+|---|---|
+| [`edit-notebook`](.claude/skills/edit-notebook/SKILL.md) | Apply structured cell-ID-keyed edits to a Jupyter notebook via a small Python helper. Use for FE notebooks too large for Edit, or for atomic multi-cell edits |
+| [`add-data-source`](.claude/skills/add-data-source/SKILL.md) | Scaffold a new `01_data_pull/NN_pull_<source>.ipynb` from the canonical template (mirrors notebook 26 conventions; ships the `name_to_iso3` fallback that BTI was missing). Walks through wiring into `02/02` |
+| [`review-fe-changes`](.claude/skills/review-fe-changes/SKILL.md) | Static-analysis checklist for `02_build_feature_matrix.ipynb` and `03_engineer_derived_features.ipynb`. Catches HP-filter row misalignment, merge-inside-loop, parquet-as-CSV, ENG_CFG-vs-panel column drift, OUTCOME_COLS / ENG_CFG outcome-list mismatch |
+
+**Useful (used per pipeline event):**
+
+| Skill | What it does |
+|---|---|
+| [`panel-sanity-check`](.claude/skills/panel-sanity-check/SKILL.md) | Load the engineered feature-matrix parquet (local path or ADLS) and run structural checks — required keys, duplicates, country/year coverage, outcome-label presence, missingness, NZV, all-NaN columns, silent-merge `_x`/`_y` collisions. Run after each FE rebuild and before each sweep |
+| [`inspect-sweep-results`](.claude/skills/inspect-sweep-results/SKILL.md) | Pull MLflow runs from a HyperDrive sweep and produce the per-outcome diagnostic from `metric-interpretation-guide.md` §9 — best/median/std of val/test/train AUPRC, val→test gap, Brier-vs-baseline, P@20, `best_iteration` saturation, and hyperparameter-clustering recommendations for the next round |
+| [`document-new-label`](.claude/skills/document-new-label/SKILL.md) | Scaffold a label-card stub at `docs/labels/<outcome>.md` covering the four-item checklist (base rate, coverage, onset definition, source-agreement rate) plus construct-validity caveats and threshold-sensitivity sweep. Use whenever a new outcome label is introduced |
+| [`refactor-backlog-add`](.claude/skills/refactor-backlog-add/SKILL.md) | Append a consistently-formatted entry to `docs/refactor-backlog.md` (auto-numbered; creates the file with a standard header if missing) |
+
+The helper scripts under each skill's `scripts/` directory are pure stdlib Python (or stdlib + `pandas`/`mlflow` where unavoidable) and runnable directly (e.g. `python3 .claude/skills/review-fe-changes/scripts/check_fe.py --all`).
 
 ---
 

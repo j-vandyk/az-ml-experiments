@@ -1,3 +1,7 @@
+> **Archived.** Extended catalog of 13 aspirational predictor domains (satellite, financial markets, displacement, digital, etc.) beyond the current pipeline. A summary lives in `../data-and-predictors.md` §6. Promote a domain back into the active reference (and add a numbered `01_data_pull/` notebook) once it is actually pulled.
+
+---
+
 # Extended Predictor & Dataset Catalog
 ## Nation-State Instability Forecasting — Sources Beyond the Standard Political Science Toolkit
 

@@ -1,3 +1,7 @@
+> **Archived.** Codebooks for core datasets, dependent-variable taxonomy, and the variable-usage matrix across 10 prior studies. Operational content has been merged into `../data-and-predictors.md` (sections 1–3). Kept here as the long-form reference and source citation.
+
+---
+
 # Dataset & Variable Synthesis
 ## Dependent Variables (Labels) and Independent Variables (Predictors) Across the ML Political Instability Literature
 
