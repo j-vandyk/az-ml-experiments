@@ -45,7 +45,7 @@ def load_parquet(path: str):
         m = re.match(r"abfss://[^@]+@([^.]+)\.dfs\.core\.windows\.net/", path)
         if not m:
             raise ValueError(f"could not parse account name from {path!r}")
-        from azure.identity import DefaultAzureCredential
+        from azure.identity import DefaultAzureCredential  # noqa: F811
         storage_options = {
             "account_name": m.group(1),
             "credential":   DefaultAzureCredential(),

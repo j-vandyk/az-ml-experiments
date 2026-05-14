@@ -13,7 +13,6 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
 
 DEFAULT_BUILD_MATRIX = Path("notebooks/02_feature_engineering/02_build_feature_matrix.ipynb")
 DEFAULT_ENGINEER     = Path("notebooks/02_feature_engineering/03_engineer_derived_features.ipynb")

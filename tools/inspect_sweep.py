@@ -17,7 +17,7 @@ PREVALENCE = {
     "coup_attempt":             0.002,
     "regime_backsliding":       0.010,
     "mass_unrest_onset":        0.150,
-    "humanitarian_crisis_onset":0.070,
+    "humanitarian_crisis_onset": 0.070,
     "unrest_binary":            0.080,
     "fh_status_decline":        0.030,
     "ethnic_exclusion_any":     0.300,
@@ -85,7 +85,11 @@ def summarise_outcome(df_all, outcome, *, top_n, ceiling):
     if n_runs == 0:
         return {"outcome": outcome, "n_runs": 0}
 
-    metrics = {m: summarise_metric(df, m) for m in ("val_auprc", "test_auprc", "train_auprc", "val_brier", "test_brier", "val_precision_at_20", "best_iteration")}
+    _mnames = (
+        "val_auprc", "test_auprc", "train_auprc", "val_brier",
+        "test_brier", "val_precision_at_20", "best_iteration",
+    )
+    metrics = {m: summarise_metric(df, m) for m in _mnames}
 
     val_s = metric_col(df, "val_auprc").astype(float, errors="ignore")
     df_sorted = df.assign(_val_auprc=val_s).sort_values("_val_auprc", ascending=False).head(top_n)

@@ -1,0 +1,5 @@
+# ── Testing & linting ─────────────────────────────────────────────────────────
+pytest>=7.4
+nbformat>=5.9          # parse .ipynb without running them
+flake8>=6.1
+nbqa>=1.7              # run flake8 inside notebook cells

@@ -73,7 +73,7 @@ def main() -> int:
 
     out_path.write_text(text)
     print(f"Scaffolded: {out_path}")
-    print(f"  Next: open, replace cell-fetch NotImplementedError, smoke-test, then wire into 02/02.")
+    print("  Next: open, replace cell-fetch NotImplementedError, smoke-test, then wire into 02/02.")
     return 0
 
 
